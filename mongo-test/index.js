@@ -22,11 +22,14 @@ function connectToDatabase (uri) {
 }
 
 
-function queryDatabase (db) {
+function queryDatabase (db, collection) {
   console.log('=> query database');
 
-  return db.collection('users').find({}).toArray()
-    .then(() => { return { statusCode: 200, body: 'success' }; })
+  return db.collection(collection).find({}).toArray()
+    .then(res => { 
+      console.log(res);
+      return { statusCode: 200, body: JSON.stringify(res)}; 
+      })
     .catch(err => {
       console.log('=> an error occurred: ', err);
       return { statusCode: 500, body: 'error' };
@@ -38,7 +41,7 @@ module.exports.handler = (event, context, callback) => {
   console.log('event: ', event);
 
   connectToDatabase(MONGODB_URI)
-    .then(db => queryDatabase(db))
+    .then(db => queryDatabase(db, 'users'))
     .then(result => {
       console.log('=> returning result: ', result);
       callback(null, result);
