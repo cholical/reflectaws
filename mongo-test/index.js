@@ -22,12 +22,12 @@ function connectToDatabase (uri) {
 }
 
 
-function queryDatabase (db, collection) {
-  console.log('=> query database');
+function queryDatabase (db, collection, queryParams = {}) {
+  console.log('=> query database', queryParams);
 
-  return db.collection(collection).find({}).toArray()
+  return db.collection(collection).find(queryParams).toArray()
     .then(res => { 
-      console.log(res);
+      console.log("=> query result", res);
       return { statusCode: 200, body: JSON.stringify(res)}; 
       })
     .catch(err => {
@@ -36,9 +36,31 @@ function queryDatabase (db, collection) {
     });
 }
 
+function addDocument (db, collection, document) {
+  console.log('=> adding document to', collection);
+
+  return db.collection(collection).insertOne(document).then( res => {
+    console.log(res);
+    return { statusCode: 200, body: "inserted doc"}
+  })
+  .catch(err => {
+    console.log('=> an error occurred: ', err);
+    return { statusCode: 500, body: 'error' };
+  })
+}
+
+// TODO - Finish addUser implementation
+function addUser (db, collection, document) {
+  queryDatabase(db, "questions", {"user" : "default"}).then(res => {
+    document.questions = res[0];
+    return addDocument(db, collection, document);
+  })
+}
+
 module.exports.handler = (event, context, callback) => {
   context.callbackWaitsForEmptyEventLoop = false;
   console.log('event: ', event);
+  
 
   connectToDatabase(MONGODB_URI)
     .then(db => queryDatabase(db, 'users'))
