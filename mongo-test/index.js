@@ -1,39 +1,50 @@
-const MongoClient = require('mongodb');
-const serverless = require('serverless-http');
-const express = require('express');
-const caBundle = require('./certs/rds-combined-ca-bundle.js');
+"use strict";
+const MongoClient = require('mongodb').MongoClient;
+const dbName = 'poc';
+const MONGODB_URI = process.env.MONGODB_URI;
 
-
-const app = express();
 let cachedDb = null;
 
-app.get('/', (req, res) => {
-    var client = connectToDatabase();
-    var user = { phone: 7043346633 }
-    
-    client.collection("users").insertOne(user, (err, res) => {
-      if(err) throw err;
-      console.log("User added");
-      res.send('User Added');
-      db.close;
-    });
-  })
-  
-module.exports.handler = serverless(app);
 
-function connectToDatabase() {
-    if (cachedDb) {
-        return Promise.resolve(cachedDb);
-    }
-    console.log("Connecting to client...");
+function connectToDatabase (uri) {
+  console.log('=> connect to database');
 
-    return MongoClient.connect(
-        process.env.MONGODB_URI,
-        { ssl: true, sslCA: caBundle, useNewUrlParser: true}
-    ).then((err, db) => {
-        if(err) throw err;
-        cachedDb = db;
-        console.log("Mongo Connected");
-        return cachedDb;
+  if (cachedDb) {
+    console.log('=> using cached database instance');
+    return Promise.resolve(cachedDb);
+  }
+
+  return MongoClient.connect(uri)
+    .then(client => {
+      cachedDb = client.db(dbName);
+      return cachedDb;
     });
 }
+
+
+function queryDatabase (db) {
+  console.log('=> query database');
+
+  return db.collection('users').find({}).toArray()
+    .then(() => { return { statusCode: 200, body: 'success' }; })
+    .catch(err => {
+      console.log('=> an error occurred: ', err);
+      return { statusCode: 500, body: 'error' };
+    });
+}
+
+module.exports.handler = (event, context, callback) => {
+  context.callbackWaitsForEmptyEventLoop = false;
+  console.log('event: ', event);
+
+  connectToDatabase(MONGODB_URI)
+    .then(db => queryDatabase(db))
+    .then(result => {
+      console.log('=> returning result: ', result);
+      callback(null, result);
+    })
+    .catch(err => {
+      console.log('=> an error occurred: ', err);
+      callback(err);
+    });
+};
