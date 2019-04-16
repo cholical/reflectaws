@@ -1,15 +1,15 @@
 {
   "name": "twilio-webhook-handler",
   "version": "1.0.0",
-  "description": "Receive SMS with Azure Functions and Node.js",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Twilio",
-  "license": "MIT",
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "twilio": "^3.0.0"
-  },
-  "devDependencies": {}
+    "mongodb": "^3.2.3",
+    "twilio": "^3.30.1"
+  }
 }
