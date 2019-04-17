@@ -1,0 +1,27 @@
+# serverless.yml
+
+service: ReflectApp
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  region: us-east-2
+  environment:
+    TwilioAccountSid: 
+    TwilioAuthToken:
+    MONGODB_URI:
+
+functions:
+  Twilio_Function:
+    handler: index.handler
+    vpc:
+      securityGroupIds:
+        - sg-c4b59daa
+      subnetIds:
+        - subnet-6971aa25
+        - subnet-996762f1
+        - subnet-465b283c
+    events:
+      - http: ANY /
+      - http: 'ANY {proxy+}'
