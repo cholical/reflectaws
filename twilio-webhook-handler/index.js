@@ -25,11 +25,11 @@ function connectToDatabase (uri) {
 
 
 function queryDatabase (db, collection, queryParams = {}) {
-  console.log('=> query database', queryParams);
+  console.log('=> query database:', queryParams);
 
   return db.collection(collection).find(queryParams).toArray()
     .then(res => { 
-      console.log("=> query result", res);
+      console.log("=> query result:", res);
       return res; 
      })
     .catch(err => {
@@ -66,23 +66,58 @@ exports.handler = function(context, event, callback) {
     .then(db => queryDatabase(db, 'users', query))
     .then(result => {
       console.log('=> returning result: ', result);
-      var userDoc = result[0];
-      var curState = userDoc.state;
-      
-      if(curState < userDoc.questions.length){
-        twiml.message(JSON.stringify(userDoc.questions[curState]));
-        cachedDb.collection('users').updateOne({number : formValues.From}, {$set: { "state" : curState + 1}});
-        if(curState == 0){
-          var doc = { number : formValues.From, responses : [formValues.Body]}
-          cachedDb.collection('responses').insertOne(doc);
+      /* Requires a check to see if result is an empty array */
+
+      if (result.length === 0) {
+        /* User is not yet registered */
+
+        //TODO: ADD A USER DOCUMENT WITH DEFAULT QUESTIONS AND STATE SET TO A VERY LARGE NUMBER
+
+        twiml.message('Welcome to Reflect. You are now registered and set up with the default questions. Expect to receive a check in from Reflect at the next daily check in time.');
+
+        cachedDb.collection('questions').findOne({user: 'default'}, function (err, defaultQuestions) {
+          if (err) {
+            console.log('=> error returning result: ', err);
+          } else {
+            console.log('=> default questions: ', defaultQuestions);
+            var newUser = { number: formValues.From, twoFa: '', state: 10000, questions: defaultQuestions.questions };
+
+            cachedDb.collection('users').insertOne(newUser, function (err, response) {
+              
+              console.log('New User Twilio message sent');
+              cachedClient.close();
+            });
+          }
+        });
+        
+        
+
+      } else {
+
+        var userDoc = result[0];
+        var curState = userDoc.state;
+
+        
+        if(curState < userDoc.questions.length){
+          /* In question ready state */
+          twiml.message(JSON.stringify(userDoc.questions[curState].q)); /* Sends twilio message of current question */
+          cachedDb.collection('users').updateOne({number : formValues.From}, {$set: { "state" : curState + 1}}); /* Stores the reponse to the previous question and updates the question state */
+          if(curState == 0){
+            var doc = { number : formValues.From, responses : [formValues.Body]}
+            cachedDb.collection('responses').insertOne(doc);
+          } else {
+            cachedDb.collection('responses').updateOne({number : formValues.From}, { $push: { responses: formValues.Body }});
+          }
         } else {
-          cachedDb.collection('responses').updateOne({number : formValues.From}, { $push: { responses: formValues.Body }});
+          /* All questions have been responded to for the day */
+          twiml.message('All reflections have been posted for today! Please expect a check in from Reflect tomorrow.');
         }
+
+        cachedClient.close()
+
       }
+
       
-
-
-      cachedClient.close()
       
       callback(null, {
 		    statusCode: 200,

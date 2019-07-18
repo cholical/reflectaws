@@ -8,9 +8,9 @@ provider:
   stage: dev
   region: us-east-2
   environment:
-    TwilioAccountSid: 
-    TwilioAuthToken:
-    MONGODB_URI:
+    TwilioAccountSid: AC85863d0f33921d924277c72a096e0689
+    TwilioAuthToken: 3e4b58fd99c59e1d8e5023bd369cb440
+    MONGODB_URI: mongodb://admin:M1cr0s0ft_99@172.31.30.195:27017
 
 functions:
   Twilio_Function:
