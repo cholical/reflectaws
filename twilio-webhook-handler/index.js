@@ -51,7 +51,25 @@ function addDocument (db, collection, document) {
   })
 }
 
+function getAdjustedResponseDate() {
+  var d = new Date();
+  if (d.getHours() < 18) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
 
+function formatDate(date) {
+  var d = new Date(date),
+      month = '' + (d.getMonth() + 1),
+      day = '' + d.getDate(),
+      year = d.getFullYear();
+
+  if (month.length < 2) month = '0' + month;
+  if (day.length < 2) day = '0' + day;
+
+  return [year, month, day].join('-');
+}
 
 exports.handler = function(context, event, callback) {
 	context.callbackWaitsForEmptyEventLoop = false;
@@ -71,8 +89,6 @@ exports.handler = function(context, event, callback) {
       if (result.length === 0) {
         /* User is not yet registered */
 
-        //TODO: ADD A USER DOCUMENT WITH DEFAULT QUESTIONS AND STATE SET TO A VERY LARGE NUMBER
-
         twiml.message('Welcome to Reflect. You are now registered and set up with the default questions. Expect to receive a check in from Reflect at the next daily check in time.');
 
         cachedDb.collection('questions').findOne({user: 'default'}, function (err, defaultQuestions) {
@@ -90,23 +106,28 @@ exports.handler = function(context, event, callback) {
           }
         });
         
-        
+        callback(null, {
+          statusCode: 200,
+          headers: {"content-type": "text/xml"},
+          body: twiml.toString()
+        });
 
       } else {
 
         var userDoc = result[0];
         var curState = userDoc.state;
 
-        
-        if(curState < userDoc.questions.length){
+        if (curState <= userDoc.questions.length) {
           /* In question ready state */
           twiml.message(JSON.stringify(userDoc.questions[curState].q)); /* Sends twilio message of current question */
-          cachedDb.collection('users').updateOne({number : formValues.From}, {$set: { "state" : curState + 1}}); /* Stores the reponse to the previous question and updates the question state */
-          if(curState == 0){
-            var doc = { number : formValues.From, responses : [formValues.Body]}
+          cachedDb.collection('users').updateOne({number : formValues.From}, {$set: { "state" : curState + 1}}); /* Updates the question state */
+
+
+          if (curState == 1){
+            var doc = { number : formValues.From, date: formatDate(getAdjustedResponseDate()), responses : [formValues.Body] }
             cachedDb.collection('responses').insertOne(doc);
           } else {
-            cachedDb.collection('responses').updateOne({number : formValues.From}, { $push: { responses: formValues.Body }});
+            cachedDb.collection('responses').updateOne({ number : formValues.From, date: formatDate(getAdjustedResponseDate()) }, { $push: { responses: formValues.Body }});
           }
         } else {
           /* All questions have been responded to for the day */
@@ -114,16 +135,12 @@ exports.handler = function(context, event, callback) {
         }
 
         cachedClient.close()
-
+        callback(null, {
+          statusCode: 200,
+          headers: {"content-type": "text/xml"},
+          body: twiml.toString()
+        });
       }
-
-      
-      
-      callback(null, {
-		    statusCode: 200,
-		    headers: {"content-type": "text/xml"},
-		    body: twiml.toString()
-		  });
 
     })
     .catch(err => {
